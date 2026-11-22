@@ -228,6 +228,8 @@
     function isoOf(y,m,d){ return y+'-'+pad2(m+1)+'-'+pad2(d); }
     function todayIso(){ var t=new Date(); return isoOf(t.getFullYear(), t.getMonth(), t.getDate()); }
     function monthKeyOf(iso){ return iso.slice(0,7); }
+    /* Cicilan jatuh tempo tanggal 1-10 dibayar dari anggaran bulan sebelumnya, jadi masuk kelompok bulan sebelumnya — sama seperti laporan keuangan (mis. Shopee jatuh tempo 1 Desember masuk tabel November). */
+    function scheduleGroupKey(iso){ var p=iso.split('-'); var d=parseInt(p[2],10); var y=parseInt(p[0],10); var m=parseInt(p[1],10); if(d<=10){ m--; if(m<1){ m=12; y--; } } return y+'-'+(m<10?'0':'')+m; }
     function monthLabel(key){ var p=key.split('-'); return MONTHS[parseInt(p[1],10)-1]+' '+p[0]; }
     function fmtRp(n){ return 'Rp' + Math.round(n).toLocaleString('id-ID'); }
     function fmtDate(iso){ var p=iso.split('-'); return parseInt(p[2],10)+' '+MONTHS[parseInt(p[1],10)-1]+' '+p[0]; }
@@ -277,7 +279,7 @@
     function debtRemaining(d){ return Math.max(0, d.total - paidSumForDebt(d.id)); }
     function totalRemaining(){ var s=0; state.debts.forEach(function(d){ s+=debtRemaining(d); }); return s; }
     function unpaidInstallmentsInMonth(key){
-      return state.installments.filter(function(it){ return !it.paid && monthKeyOf(it.date)===key; });
+      return state.installments.filter(function(it){ return !it.paid && scheduleGroupKey(it.date)===key; });
     }
     function monthShortfall(key){
       var cicilan=0; unpaidInstallmentsInMonth(key).forEach(function(it){ cicilan+=it.amount; });
@@ -454,7 +456,7 @@
       html+='<h2>Cicilan yang Sudah Dibayar</h2>';
       var paid=state.installments.filter(function(it){ return it.paid; });
       var byMonth={};
-      paid.forEach(function(it){ var k=monthKeyOf(it.date); (byMonth[k]=byMonth[k]||[]).push({ kind:'cicilan', it:it }); });
+      paid.forEach(function(it){ var k=scheduleGroupKey(it.date); (byMonth[k]=byMonth[k]||[]).push({ kind:'cicilan', it:it }); });
       state.expenses.forEach(function(x){ var k=monthKeyOf(x.date); (byMonth[k]=byMonth[k]||[]).push({ kind:'manual', it:x }); });
       var keys=Object.keys(byMonth).sort().reverse();
       if(keys.length===0){ html+='<div class="card"><p class="divider-note" style="margin:0;">Belum ada cicilan yang dibayar. Tandai cicilan sebagai “Sudah bayar” di tab Hutang, nanti muncul di sini.</p></div>'; }
@@ -576,7 +578,7 @@
           /* Tabel cicilan per bulan */
           var mine=state.installments.filter(function(it){ return it.debtId===d.id; });
           var byMonth={};
-          mine.forEach(function(it){ var k=monthKeyOf(it.date); (byMonth[k]=byMonth[k]||[]).push(it); });
+          mine.forEach(function(it){ var k=scheduleGroupKey(it.date); (byMonth[k]=byMonth[k]||[]).push(it); });
           Object.keys(byMonth).sort().forEach(function(k){
             var rows=byMonth[k].slice().sort(function(a,b){ return a.date.localeCompare(b.date); });
             var tot=0; rows.forEach(function(r){ tot+=r.amount; });
