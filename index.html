@@ -299,14 +299,19 @@
       }
       var nm=m+1, ny=y; if(nm>11){ nm=0; ny=y+1; }
       var nextKey=isoOf(ny,nm,1).slice(0,7);
-      /* Gabungan = sisa bulan ini + kelompok tanggal 20 & 21 bulan depan (dikurangi pemasukan bulan itu) — sama seperti aplikasi. */
+      /* Siklus 28 ke 28: sisa bulan ini + kekurangan bulan depan (semua jatuh tempo 28, 20, dan 21) — target sampai tanggal 28 bulan depan. */
+      var combined=sisa+monthShortfall(nextKey);
+      var endB=isoOf(ny,nm,28);
+      var daysB=Math.max(1, daysBetweenInclusive(today,endB));
+      /* Pemberitahuan terpisah: rata-rata khusus tanggal 20 & 21 bulan depan. */
       var t20total=0; state.installments.forEach(function(it){ if(!it.paid && scheduleGroupKey(it.date)===nextKey){ var dd=parseInt(it.date.split('-')[2],10); if(dd===20||dd===21) t20total+=it.amount; } });
       var incNext=0; state.incomes.forEach(function(x){ if(monthKeyOf(x.date)===nextKey) incNext+=x.amount; });
-      var combined=sisa+Math.max(0, t20total-incNext);
-      var endB=isoOf(ny,nm,20);
-      var daysB=Math.max(1, daysBetweenInclusive(today,endB));
+      var t20Amount=Math.max(0, t20total-incNext);
+      var endT20=isoOf(ny,nm,20);
+      var t20Days=Math.max(1, daysBetweenInclusive(today,endT20));
       return { mode:'gabungan', amount:combined, days:daysB, perDay: combined>0?ceil100(combined/daysB):0,
-               endLabel:'20 '+MONTHS[nm]+' '+ny, startIso:today, endIso:endB };
+               endLabel:'28 '+MONTHS[nm]+' '+ny, startIso:today, endIso:endB,
+               t20Amount:t20Amount, t20Days:t20Days, t20PerDay: t20Amount>0?ceil100(t20Amount/t20Days):0, t20EndLabel:'20 '+MONTHS[nm]+' '+ny };
     }
 
     /* ================= Toast & modal ================= */
@@ -422,7 +427,9 @@
       } else {
         html+='<div class="title bold" style="font-size:17px;">Target gabungan sampai '+esc(target.endLabel)+'</div>'+
           '<p class="divider-note" style="margin:8px 0 12px;">Gabungan sisa kekurangan bulan ini dan kekurangan bulan depan (jatuh tempo tanggal 28, 20, dan 21). Terhitung dari hari ini ('+fmtDateShort(target.startIso)+') sampai '+esc(target.endLabel)+': total '+fmtRp(target.amount)+' dibagi '+target.days+' hari.</p>'+
-          '<div class="rowline"><span class="muted">Target per hari</span><span class="money green" style="font-size:22px;">'+fmtRp(target.perDay)+'<span class="small muted">/hari</span></span></div>';
+          '<div class="rowline"><span class="muted">Target per hari</span><span class="money green" style="font-size:22px;">'+fmtRp(target.perDay)+'<span class="small muted">/hari</span></span></div>'+
+          (target.t20Amount>0 ? '<div class="rowline" style="margin-top:10px;"><span class="muted">Target tanggal 20 &amp; 21 saja</span><span class="money green" style="font-size:18px;">'+fmtRp(target.t20PerDay)+'<span class="small muted">/hari</span></span></div>'+
+          '<p class="divider-note" style="margin:6px 0 0;">Khusus tanggal 20 &amp; 21: '+fmtRp(target.t20Amount)+' dibagi '+target.t20Days+' hari sampai '+esc(target.t20EndLabel)+'.</p>' : '');
       }
       html+='</div>';
 
