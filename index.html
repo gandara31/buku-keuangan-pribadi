@@ -299,7 +299,10 @@
       }
       var nm=m+1, ny=y; if(nm>11){ nm=0; ny=y+1; }
       var nextKey=isoOf(ny,nm,1).slice(0,7);
-      var combined=sisa+monthShortfall(nextKey);
+      /* Gabungan = sisa bulan ini + kelompok tanggal 20 & 21 bulan depan (dikurangi pemasukan bulan itu) — sama seperti aplikasi. */
+      var t20total=0; state.installments.forEach(function(it){ if(!it.paid && scheduleGroupKey(it.date)===nextKey){ var dd=parseInt(it.date.split('-')[2],10); if(dd===20||dd===21) t20total+=it.amount; } });
+      var incNext=0; state.incomes.forEach(function(x){ if(monthKeyOf(x.date)===nextKey) incNext+=x.amount; });
+      var combined=sisa+Math.max(0, t20total-incNext);
       var endB=isoOf(ny,nm,20);
       var daysB=Math.max(1, daysBetweenInclusive(today,endB));
       return { mode:'gabungan', amount:combined, days:daysB, perDay: combined>0?ceil100(combined/daysB):0,
