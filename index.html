@@ -278,6 +278,22 @@
     function paidSumForDebt(id){ var s=0; state.installments.forEach(function(it){ if(it.debtId===id && it.paid) s+=it.amount; }); return s; }
     function debtRemaining(d){ return Math.max(0, d.total - paidSumForDebt(d.id)); }
     function totalRemaining(){ var s=0; state.debts.forEach(function(d){ s+=debtRemaining(d); }); return s; }
+    /* Rincian total hutang per bulan: semua cicilan BELUM dibayar digabung per bulan
+       (kelompok bulan memakai scheduleGroupKey, sama seperti tabel Perincian),
+       urut dari bulan terdekat. Jumlah semua bulan = totalRemaining(). */
+    function monthlyDebtTotals(){
+      var byMonth={};
+      state.installments.forEach(function(it){
+        if(it.paid) return;
+        var k=scheduleGroupKey(it.date);
+        (byMonth[k]=byMonth[k]||[]).push(it);
+      });
+      return Object.keys(byMonth).sort().map(function(k){
+        var rows=byMonth[k].slice().sort(function(a,b){ return a.date.localeCompare(b.date); });
+        var tot=0; rows.forEach(function(r){ tot+=r.amount; });
+        return { key:k, total:tot, count:rows.length, rows:rows };
+      });
+    }
     function unpaidInstallmentsInMonth(key){
       return state.installments.filter(function(it){ return !it.paid && scheduleGroupKey(it.date)===key; });
     }
@@ -337,6 +353,7 @@
     ];
     var currentTab='beranda';
     var expandedDebts={};
+    var expandedMonths={};
     function buildTabbar(){
       var bar=document.getElementById('tabbar'); bar.innerHTML='';
       TABS.forEach(function(t){
@@ -563,6 +580,28 @@
       var html='<h1>Hutang</h1><p class="sub">Daftar hutang yang belum lunas.</p>';
       html+='<div class="card" style="background:var(--card2);"><div class="rowline"><span class="muted">Total hutang belum lunas</span><span class="money" style="font-size:21px;">'+fmtRp(totalRemaining())+'</span></div></div>';
 
+      /* Rincian total hutang per bulan — semua hutang digabung, urut dari bulan terdekat. */
+      var months=monthlyDebtTotals();
+      if(months.length>0){
+        html+='<h2>Rincian Total Hutang per Bulan</h2>';
+        html+='<p class="divider-note">Total cicilan yang belum dibayar tiap bulan, semua hutang digabung. Ketuk bulan untuk melihat rinciannya.</p>';
+        months.forEach(function(mo){
+          var open=!!expandedMonths[mo.key];
+          html+='<div class="card"><div class="rowline clickable" data-month="'+mo.key+'"><div><div class="title bold" style="font-size:17px;">'+esc(monthLabel(mo.key))+' '+(open?'▴':'▾')+'</div><div class="desc muted small" style="margin-top:2px;">'+mo.count+' cicilan belum dibayar</div></div>'+
+            '<span class="money" style="font-size:18px;">'+fmtRp(mo.total)+'</span></div>';
+          if(open){
+            html+='<div style="margin-top:12px;">';
+            mo.rows.forEach(function(it){
+              var d=debtById(it.debtId);
+              html+='<div class="kv"><span class="k">'+esc(d?d.name:'')+' · '+esc(it.comp)+'<br /><span class="small">'+fmtDate(it.date)+' · Cicilan Ke-'+it.ke+'/'+it.of+'</span></span><span class="v">'+fmtRp(it.amount)+'</span></div>';
+            });
+            html+='</div>';
+          }
+          html+='</div>';
+        });
+        html+='<p class="divider-note" style="text-align:right;">Total semua bulan: <b style="color:var(--text);">'+fmtRp(totalRemaining())+'</b></p>';
+      }
+
       state.debts.forEach(function(d){
         var rem=debtRemaining(d);
         var pct=d.total>0 ? Math.round((d.total-rem)/d.total*100) : 0;
@@ -630,6 +669,12 @@
         b.addEventListener('click', function(){
           var id=b.getAttribute('data-perincian');
           expandedDebts[id]=!expandedDebts[id]; renderHutang();
+        });
+      });
+      el.querySelectorAll('[data-month]').forEach(function(row){
+        row.addEventListener('click', function(){
+          var k=row.getAttribute('data-month');
+          expandedMonths[k]=!expandedMonths[k]; renderHutang();
         });
       });
       el.querySelectorAll('[data-pay]').forEach(function(b){
