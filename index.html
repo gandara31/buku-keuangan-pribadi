@@ -96,6 +96,15 @@
         background:var(--green-soft); color:var(--green);
         font-size:12px; font-weight:800; padding:4px 10px; border-radius:999px; white-space:nowrap;
       }
+      /* Tombol centang manual: ketuk untuk menandai cicilan lunas / membatalkannya. */
+      .check-btn{
+        width:40px; height:40px; min-height:40px; border-radius:12px; flex:0 0 auto;
+        border:2px solid var(--line); background:transparent; color:var(--muted);
+        font-size:20px; font-weight:800; line-height:1; padding:0;
+        display:inline-flex; align-items:center; justify-content:center;
+      }
+      .check-btn.checked{ background:var(--green); border-color:var(--green); color:#07130b; }
+      .check-btn:active{ transform:scale(.94); }
       .kv{ display:flex; justify-content:space-between; align-items:baseline; gap:14px; padding:11px 0; border-bottom:1px solid var(--line); }
       .kv:last-child{ border-bottom:none; }
       .kv .k{ color:var(--muted); font-size:14px; }
@@ -585,7 +594,7 @@
       var months=monthlyDebtTotals();
       if(months.length>0){
         html+='<h2>Rincian Total Hutang per Bulan</h2>';
-        html+='<p class="divider-note">Total cicilan tiap bulan, semua hutang digabung — yang belum dibayar dan yang sudah dibayar. Ketuk bulan untuk melihat rinciannya.</p>';
+        html+='<p class="divider-note">Total cicilan tiap bulan, semua hutang digabung — yang belum dibayar dan yang sudah dibayar. Ketuk bulan untuk melihat rinciannya, ketuk tanda ✓ untuk menandai cicilan lunas.</p>';
         months.forEach(function(mo){
           var open=!!expandedMonths[mo.key];
           html+='<div class="card"><div class="rowline clickable" data-month="'+mo.key+'"><div><div class="title bold" style="font-size:17px;">'+esc(monthLabel(mo.key))+' '+(open?'▴':'▾')+'</div><div class="desc muted small" style="margin-top:2px;">'+mo.count+' cicilan belum dibayar</div></div>'+
@@ -597,7 +606,9 @@
             html+='<div style="margin-top:12px;">';
             mo.rows.forEach(function(it){
               var d=debtById(it.debtId);
-              html+='<div class="kv"><span class="k">'+esc(d?d.name:'')+' · '+esc(it.comp)+'<br /><span class="small">'+fmtDate(it.date)+' · Cicilan Ke-'+it.ke+'/'+it.of+(it.paid?' · Lunas':'')+'</span></span><span class="v'+(it.paid?' green':'')+'">'+(it.paid?'✓ ':'')+fmtRp(it.amount)+'</span></div>';
+              html+='<div class="kv"><span class="k">'+esc(d?d.name:'')+' · '+esc(it.comp)+'<br /><span class="small">'+fmtDate(it.date)+' · Cicilan Ke-'+it.ke+'/'+it.of+(it.paid?' · Lunas':'')+'</span></span>'+
+                '<span class="v" style="display:inline-flex; align-items:center; gap:10px;"><span class="'+(it.paid?'green':'')+'">'+(it.paid?'✓ ':'')+fmtRp(it.amount)+'</span>'+
+                '<button class="check-btn'+(it.paid?' checked':'')+'" data-toggle-pay="'+it.id+'" aria-label="'+(it.paid?'Batalkan lunas':'Tandai lunas')+'">✓</button></span></div>';
             });
             html+='</div>';
           }
@@ -679,6 +690,16 @@
         row.addEventListener('click', function(){
           var k=row.getAttribute('data-month');
           expandedMonths[k]=!expandedMonths[k]; renderHutang();
+        });
+      });
+      el.querySelectorAll('[data-toggle-pay]').forEach(function(b){
+        b.addEventListener('click', function(){
+          var it=state.installments.filter(function(x){ return x.id===b.getAttribute('data-toggle-pay'); })[0];
+          if(it){
+            if(it.paid){ it.paid=false; it.paidDate=null; toast('Tanda lunas dibatalkan.'); }
+            else { it.paid=true; it.paidDate=todayIso(); toast('Cicilan ditandai lunas.'); }
+            saveState(); renderAll();
+          }
         });
       });
       el.querySelectorAll('[data-pay]').forEach(function(b){
